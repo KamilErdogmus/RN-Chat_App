@@ -92,9 +92,11 @@ export const indexStyles = StyleSheet.create({
   connectedUsers: {
     textAlign: "center",
     padding: 10,
+    borderRadius: 12,
     backgroundColor: "red",
     color: "#fff",
-    fontSize: 12,
+    fontWeight: "bold",
+    fontSize: 20,
   },
   errorText: {
     color: "red",

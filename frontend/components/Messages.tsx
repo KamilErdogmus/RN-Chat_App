@@ -6,129 +6,146 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { getData } from "@/service/api";
 import { useSocket } from "@/hooks/useSocket";
-import { dummyMessages } from "@/constants/dummy";
 import { messagesStyles } from "@/styles/messagesStyles";
+import moment from "moment";
+import { formatMessage } from "@/hooks/formatMessages";
+import RenderMessage from "./RenderMessage";
+import { typingUserStyles } from "@/styles/typingUserStyles";
 
 const Messages = forwardRef<MessagesRef, MessagesProps>(
   ({ onUpdateConnectedUsers }, ref) => {
     const { socket, isConnected } = useSocket();
-    const [data, setData] = useState(null);
-    const [typing, setTyping] = useState<boolean>(false);
+    const [currentUsername, setCurrentUsername] = useState("Anonymous");
+    const [editingMessage, setEditingMessage] = useState<IMessage | null>(null);
+    const [editText, setEditText] = useState("");
+    const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
+    const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
     const [totalConnectedUsers, setTotalConnectedUsers] = useState(0);
+    const [messages, setMessages] = useState<IMessage[]>([]);
     const flatListRef = useRef<FlatList<IMessage>>(null);
-    const [messages, setMessages] = useState<IMessage[]>(dummyMessages);
+
+    const handleLongPress = (messageId: string) =>
+      setSelectedMessage(messageId);
+
+    const handleDeleteMessage = (messageId: string) => {
+      socket?.emit("delete_message", { messageId });
+      setSelectedMessage(null);
+    };
+
+    const handleEditMessage = (messageId: string) => {
+      const message = messages.find((msg) => msg.id === messageId);
+      if (message) {
+        setEditingMessage(message);
+        setEditText(message.text);
+        setSelectedMessage(null);
+      }
+    };
+
+    const handleSaveEdit = () => {
+      if (!editingMessage || !editText.trim()) return;
+      socket?.emit("edit_message", {
+        messageId: editingMessage.id,
+        newText: editText.trim(),
+      });
+      setEditingMessage(null);
+      setEditText("");
+    };
+
+    const sendMessage = (text: string) => {
+      if (!socket || !text.trim()) return;
+      const newMessage: IMessage = {
+        id: Date.now().toString(),
+        text: text.trim(),
+        isUser: true,
+        username: currentUsername,
+        timestamp: moment().format("HH:mm"),
+      };
+      setMessages((prev) => [...prev, newMessage]);
+      socket.emit("send_message", newMessage);
+    };
 
     useImperativeHandle(ref, () => ({
       sendMessage,
+      setUsername: (username: string) => {
+        setCurrentUsername(username);
+        socket?.emit("set_username", username);
+      },
+      sendTyping: () => socket?.emit("typing_start"),
     }));
-
-    useEffect(() => {
-      const fetchData = async () => {
-        try {
-          const response = await getData();
-          setData(response.data);
-          console.log("başarılı");
-        } catch (error) {
-          console.error("Error fetching data:", error);
-        }
-      };
-
-      fetchData();
-    }, []);
 
     useEffect(() => {
       if (!socket) return;
 
-      socket.on("users_count", (count: number) => {
-        console.log("Users count received:", count);
-        setTotalConnectedUsers(count);
-        onUpdateConnectedUsers?.(count);
+      const eventHandlers = {
+        users_count: (count: number) => {
+          setTotalConnectedUsers(count);
+          onUpdateConnectedUsers?.(count);
+        },
+        typing_users_updated: (users: TypingUser[]) => {
+          setTypingUsers(users.filter((user) => user.id !== socket.id));
+        },
+        receive_message: (message: IMessage) => {
+          setMessages((prev) => [...prev, formatMessage(message)]);
+        },
+        message_deleted: (messageId: string) => {
+          setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+        },
+        message_edited: ({
+          messageId,
+          newText,
+        }: {
+          messageId: string;
+          newText: string;
+        }) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === messageId
+                ? { ...msg, text: newText, edited: true }
+                : msg
+            )
+          );
+        },
+        username_changed: ({
+          userId,
+          newUsername,
+          updatedMessages,
+        }: {
+          userId: string;
+          newUsername: string;
+          updatedMessages: Array<{ messageId: string }>;
+        }) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              updatedMessages.some((update) => update.messageId === msg.id)
+                ? { ...msg, username: newUsername }
+                : msg
+            )
+          );
+        },
+      };
+
+      // Event listeners'ları ekle
+      Object.entries(eventHandlers).forEach(([event, handler]) => {
+        socket.on(event, handler);
       });
 
-      socket.on("receive_message", (message: IMessage) => {
-        setMessages((prev) => [...prev, message]);
-      });
-
-      socket.on("user_typing", (data: { username: string }) => {
-        setTyping(true);
-        setTimeout(() => setTyping(false), 3000);
-      });
-
+      // Cleanup
       return () => {
-        socket.off("users_count");
-        socket.off("receive_message");
-        socket.off("user_typing");
+        Object.keys(eventHandlers).forEach((event) => {
+          socket.off(event);
+        });
       };
     }, [socket, onUpdateConnectedUsers]);
 
     useEffect(() => {
       if (messages.length > 0) {
-        setTimeout(() => {
+        const timer = setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
+        return () => clearTimeout(timer);
       }
     }, [messages]);
-
-    const sendMessage = (text: string) => {
-      if (!socket || !text.trim()) return;
-
-      const newMessage: IMessage = {
-        id: Date.now().toString(),
-        text,
-        isUser: true,
-        username: "You",
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-
-      setMessages((prev) => [...prev, newMessage]);
-      socket.emit("send_message", newMessage);
-    };
-
-    const sendTyping = () => {
-      if (!socket) return;
-      socket.emit("typing", { username: "You" });
-    };
-
-    const renderMessage = ({ item }: { item: IMessage }) => (
-      <View
-        style={[
-          messagesStyles.messageWrapper,
-          item.isUser
-            ? messagesStyles.userMessageWrapper
-            : messagesStyles.otherMessageWrapper,
-        ]}
-      >
-        <View
-          style={[
-            messagesStyles.messageContainer,
-            item.isUser
-              ? messagesStyles.userMessageContainer
-              : messagesStyles.otherMessageContainer,
-          ]}
-        >
-          <Text
-            style={[
-              messagesStyles.messageText,
-              item.isUser
-                ? messagesStyles.userMessageText
-                : messagesStyles.otherMessageText,
-            ]}
-          >
-            {item.text}
-          </Text>
-          <View style={messagesStyles.messageFooter}>
-            <Text style={messagesStyles.username}>{item.username}</Text>
-            <Text style={messagesStyles.bullet}>&bull;</Text>
-            <Text style={messagesStyles.timestamp}>{item.timestamp}</Text>
-          </View>
-        </View>
-      </View>
-    );
 
     return (
       <View style={messagesStyles.container}>
@@ -137,40 +154,48 @@ const Messages = forwardRef<MessagesRef, MessagesProps>(
             Connecting to server...
           </Text>
         )}
-        <FlatList
-          data={messages}
-          renderItem={renderMessage}
-          getItemLayout={(data, index) => ({
-            length: 100,
-            offset: 100 * index,
-            index,
-          })}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={messagesStyles.flatListContent}
-          showsVerticalScrollIndicator={false}
-          refreshing={false}
-          ListFooterComponent={
-            typing ? (
-              <View style={messagesStyles.typingContainer}>
-                <Text style={messagesStyles.typingText}>
-                  ✍️ Someone is typing...
+        <View style={messagesStyles.messagesContainer}>
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={({ item }) => (
+              <RenderMessage
+                item={item}
+                editingMessage={editingMessage}
+                editText={editText}
+                selectedMessage={selectedMessage}
+                onLongPress={handleLongPress}
+                onEditText={setEditText}
+                onSaveEdit={handleSaveEdit}
+                onDelete={handleDeleteMessage}
+                onEdit={handleEditMessage}
+                onCloseModal={() => setSelectedMessage(null)}
+              />
+            )}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[
+              messagesStyles.flatListContent,
+              { paddingBottom: typingUsers.length > 0 ? 100 : 60 },
+            ]}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() =>
+              flatListRef.current?.scrollToEnd({ animated: true })
+            }
+            onLayout={() =>
+              flatListRef.current?.scrollToEnd({ animated: true })
+            }
+          />
+          {typingUsers.length > 0 && (
+            <View style={typingUserStyles.typingWrapper}>
+              <View style={typingUserStyles.typingBubble}>
+                <Text style={typingUserStyles.typingText}>
+                  ✍️ {typingUsers.map((user) => user.username).join(", ")}
+                  {typingUsers.length === 1 ? " is" : " are"} typing...
                 </Text>
               </View>
-            ) : null
-          }
-          onContentSizeChange={() => {
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }}
-          onLayout={() => {
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }}
-          ref={flatListRef}
-        />
-        {totalConnectedUsers > 0 && (
-          <Text style={messagesStyles.connectedUsers}>
-            Online Users: {totalConnectedUsers}
-          </Text>
-        )}
+            </View>
+          )}
+        </View>
       </View>
     );
   }

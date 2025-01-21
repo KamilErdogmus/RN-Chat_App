@@ -3,122 +3,211 @@ import cors from "cors";
 import { Server } from "socket.io";
 import { createServer } from "http";
 
-const app = express();
-const httpServer = createServer(app);
-const io = new Server(httpServer, {
+const CONFIG = {
+  PORT: 3013,
+  INACTIVE_TIMEOUT: 30 * 60 * 1000,
+  CLEANUP_INTERVAL: 5 * 60 * 1000,
+};
+
+const SOCKET_CONFIG = {
   cors: {
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
+    allowedHeaders: ["*"],
   },
-});
+  allowEIO3: true,
+  transports: ["websocket", "polling"],
+};
+
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, SOCKET_CONFIG);
+
+const connectedUsers = new Map();
+const activeConnections = new Set();
+const typingTimeouts = new Map();
+const messageHistory = new Map();
 
 app.use(cors());
 
-const connectedUsers = new Map();
+function isSocketActive(socketId) {
+  return activeConnections.has(socketId) && connectedUsers.has(socketId);
+}
 
-io.on("connection", (socket) => {
-  const userInfo = {
+function broadcastUserStatus() {
+  try {
+    const activeUsers = Array.from(connectedUsers.values()).filter((user) =>
+      isSocketActive(user.id)
+    );
+    io.emit("users_count", activeUsers.length);
+    io.emit("users_list", activeUsers);
+  } catch (error) {
+    console.error("Error broadcasting user status:", error);
+  }
+}
+
+function cleanupInactiveUsers() {
+  const now = new Date();
+  let hasChanges = false;
+
+  for (const socketId of activeConnections) {
+    const user = connectedUsers.get(socketId);
+    if (
+      !user ||
+      now.getTime() - user.lastActivity.getTime() > CONFIG.INACTIVE_TIMEOUT
+    ) {
+      activeConnections.delete(socketId);
+      connectedUsers.delete(socketId);
+      typingTimeouts.delete(socketId);
+      hasChanges = true;
+    }
+  }
+
+  if (hasChanges) broadcastUserStatus();
+}
+
+function handleTyping(socket, isTyping) {
+  const user = connectedUsers.get(socket.id);
+  if (!user) return;
+
+  user.isTyping = isTyping;
+  user.lastActivity = new Date();
+
+  const typingUsers = Array.from(connectedUsers.values())
+    .filter((u) => u.isTyping)
+    .map((u) => ({
+      id: u.id,
+      username: u.username,
+    }));
+
+  io.emit("typing_users_updated", typingUsers);
+}
+
+function handleUserConnection(socket) {
+  const initialUsername = `Anonymous${Math.floor(Math.random() * 1000)
+    .toString()
+    .padStart(3, "0")}`;
+
+  if (connectedUsers.has(socket.id)) {
+    connectedUsers.delete(socket.id);
+    activeConnections.delete(socket.id);
+    typingTimeouts.delete(socket.id);
+  }
+
+  activeConnections.add(socket.id);
+  connectedUsers.set(socket.id, {
     id: socket.id,
-    username: "Anonymous",
+    username: initialUsername,
     connectedAt: new Date(),
     isTyping: false,
     lastActivity: new Date(),
-  };
-
-  // Kullanıcıyı Map'e ekle
-  connectedUsers.set(socket.id, userInfo);
-
-  // Bağlı kullanıcı sayısını ve listesini güncelle
-  broadcastUserStatus();
-
-  socket.on("set_username", (username) => {
-    const user = connectedUsers.get(socket.id);
-    if (user) {
-      user.username = username;
-      broadcastUserStatus();
-    }
   });
 
-  socket.on("send_message", (message) => {
-    const user = connectedUsers.get(socket.id);
-    if (user) {
+  return initialUsername;
+}
+
+io.on("connection", (socket) => {
+  try {
+    const initialUsername = handleUserConnection(socket);
+
+    socket.on("send_message", (messageData) => {
+      const user = connectedUsers.get(socket.id);
+      if (!user) return;
+
       user.lastActivity = new Date();
-      socket.broadcast.emit("receive_message", {
-        ...message,
+      const enrichedMessage = {
+        id: messageData.id,
+        text: messageData.text,
         username: user.username,
-      });
-    }
-  });
-
-  socket.on("typing", (data) => {
-    const user = connectedUsers.get(socket.id);
-    if (user) {
-      user.isTyping = true;
-      user.lastActivity = new Date();
-
-      socket.broadcast.emit("user_typing", {
         userId: socket.id,
-        username: user.username,
-      });
+        isUser: false,
+        timestamp: new Date().toISOString(),
+      };
 
-      // Typing durumunu 3 saniye sonra resetle
-      setTimeout(() => {
-        if (user.isTyping) {
-          user.isTyping = false;
-          socket.broadcast.emit("user_stopped_typing", {
-            userId: socket.id,
-            username: user.username,
-          });
-        }
-      }, 3000);
-    }
-  });
+      messageHistory.set(messageData.id, enrichedMessage);
 
-  socket.on("disconnect", () => {
-    // Kullanıcıyı Map'ten çıkar
-    connectedUsers.delete(socket.id);
+      socket.emit("message_sent", { ...enrichedMessage, isUser: true });
+      socket.broadcast.emit("receive_message", enrichedMessage);
+    });
 
-    // Bağlı kullanıcı sayısını ve listesini güncelle
-    broadcastUserStatus();
+    socket.on("delete_message", ({ messageId }) => {
+      const user = connectedUsers.get(socket.id);
+      if (user) io.emit("message_deleted", messageId);
+    });
 
-    console.log(
-      `User ${socket.id} disconnected. Total users: ${connectedUsers.size}`
-    );
-  });
+    socket.on("edit_message", ({ messageId, newText }) => {
+      const user = connectedUsers.get(socket.id);
+      if (user) {
+        io.emit("message_edited", {
+          messageId,
+          newText,
+          editedBy: user.username,
+          editedAt: new Date().toISOString(),
+        });
+      }
+    });
 
-  function broadcastUserStatus() {
-    const usersList = Array.from(connectedUsers.values()).map((user) => ({
-      id: user.id,
-      username: user.username,
-      isTyping: user.isTyping,
-      lastActivity: user.lastActivity,
-    }));
+    socket.emit("set_initial_username", initialUsername);
 
-    io.emit("users_count", connectedUsers.size);
-    io.emit("users_list", usersList);
-  }
+    socket.on("set_username", (newUsername) => {
+      const user = connectedUsers.get(socket.id);
+      if (user) {
+        const oldUsername = user.username;
+        user.username = newUsername;
+        user.lastActivity = new Date();
 
-  // Aktif olmayan kullanıcıları temizle
-  setInterval(() => {
-    const now = new Date();
-    for (const [id, user] of connectedUsers.entries()) {
-      const inactiveTime = now.getTime() - user.lastActivity.getTime();
-      if (inactiveTime > 30 * 60 * 1000) {
-        // 30 dakika
-        connectedUsers.delete(id);
+        const updatedMessages = [];
+        messageHistory.forEach((message, messageId) => {
+          if (message.userId === socket.id) {
+            message.username = newUsername;
+            updatedMessages.push({
+              messageId,
+              newUsername,
+              oldUsername,
+            });
+          }
+        });
+
+        io.emit("username_changed", {
+          userId: socket.id,
+          oldUsername,
+          newUsername,
+          updatedMessages,
+        });
+
         broadcastUserStatus();
       }
-    }
-  }, 5 * 60 * 1000); // 5 dakikada bir kontrol
+    });
+
+    socket.on("typing_start", () => handleTyping(socket, true));
+    socket.on("typing_stop", () => handleTyping(socket, false));
+
+    socket.on("disconnect", () => {
+      const user = connectedUsers.get(socket.id);
+      if (!user) return;
+
+      if (user.isTyping) {
+        socket.broadcast.emit("user_stopped_typing", {
+          userId: socket.id,
+          username: user.username,
+        });
+      }
+
+      activeConnections.delete(socket.id);
+      connectedUsers.delete(socket.id);
+      typingTimeouts.delete(socket.id);
+      broadcastUserStatus();
+    });
+
+    broadcastUserStatus();
+  } catch (error) {
+    console.error("Error handling socket connection:", error);
+  }
 });
 
-app.get("/api/test", (req, res) => {
-  res.json({ message: "Test başarılı!" });
-});
+setInterval(cleanupInactiveUsers, CONFIG.CLEANUP_INTERVAL);
 
-const PORT = 3013;
-// app.listen yerine httpServer.listen kullanın
-httpServer.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT} 🚀`);
+httpServer.listen(CONFIG.PORT, () => {
+  console.log(`Server is running on port ${CONFIG.PORT} 🚀`);
 });

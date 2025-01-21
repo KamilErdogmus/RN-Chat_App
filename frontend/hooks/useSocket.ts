@@ -1,44 +1,50 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import { Platform } from "react-native";
+
+let globalSocket: Socket | null = null;
+
+const SOCKET_CONFIG = {
+  transports: ["websocket"],
+  upgrade: false,
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+};
+
+const IOS_HEADERS = {
+  "Content-Type": "application/json",
+  Accept: "application/json",
+};
+
+const getSocketUrl = () => {
+  const PORT = "3013";
+  const HOST = Platform.OS === "android" ? "10.0.2.2" : "localhost";
+  return `http://${HOST}:${PORT}`;
+};
 
 export const useSocket = () => {
-  const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    socketRef.current = io("http://localhost:3013", {
-      transports: ["websocket"],
-      upgrade: false,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
+    if (globalSocket) return;
+
+    globalSocket = io(getSocketUrl(), {
+      ...SOCKET_CONFIG,
+      extraHeaders: Platform.OS === "ios" ? IOS_HEADERS : undefined,
     });
 
-    socketRef.current.on("connect", () => {
-      setIsConnected(true);
-      setError(null);
-      console.log("Connected to server", socketRef.current?.id);
-    });
-
-    socketRef.current.on("connect_error", (err) => {
-      setError(`Connection error: ${err.message}`);
-      console.error("Connection error:", err);
-    });
-
-    socketRef.current.on("disconnect", (reason) => {
-      setIsConnected(false);
-      console.log("Disconnected:", reason);
-    });
+    globalSocket
+      .on("connect", () => setIsConnected(true))
+      .on("disconnect", () => setIsConnected(false))
+      .on("connect_error", () => setIsConnected(false));
 
     return () => {
-      socketRef.current?.disconnect();
+      if (!globalSocket) return;
+      globalSocket.disconnect();
+      globalSocket = null;
     };
   }, []);
 
-  return {
-    socket: socketRef.current,
-    isConnected,
-    error,
-  };
+  return { socket: globalSocket, isConnected };
 };

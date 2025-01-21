@@ -1,32 +1,51 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, Text, Image, Pressable, TextInput } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Messages from "@/components/Messages";
 import { indexStyles } from "@/styles/indexStyles";
+import { useSocket } from "@/hooks/useSocket";
 
 export default function Index() {
-  const [darkMode, setDarkMode] = useState<boolean>(false);
-  const [message, setMessage] = useState<string>("");
+  const { socket } = useSocket();
+  const [message, setMessage] = useState("");
+  const [username, setUsername] = useState(
+    `Anonymous${Math.floor(Math.random() * 1000)
+      .toString()
+      .padStart(3, "0")}`
+  );
   const [totalConnectedUsers, setTotalConnectedUsers] = useState(0);
   const messageRef = useRef<MessagesRef>(null);
 
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      messageRef.current?.sendMessage(message);
-      setMessage("");
-    }
+  const handleChangeUsername = (newUsername: string) => {
+    setUsername(newUsername);
+    socket?.emit("set_username", newUsername);
+    messageRef.current?.setUsername(newUsername);
   };
 
   const handleChangeMessage = (text: string) => {
     setMessage(text);
-    // Burada typing eventi gönderilebilir
+    socket?.emit(text.trim() ? "typing_start" : "typing_stop");
   };
 
-  const handleUpdateConnectedUsers = (count: number) => {
-    console.log("Updating connected users:", count); // Debug için
-    setTotalConnectedUsers(count);
+  const handleSendMessage = () => {
+    if (!message.trim()) return;
+
+    messageRef.current?.sendMessage(message);
+    setMessage("");
+    socket?.emit("typing_stop");
   };
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.emit("set_username", username);
+    messageRef.current?.setUsername(username);
+
+    return () => {
+      socket.emit("typing_stop");
+    };
+  }, [socket, username]);
 
   return (
     <LinearGradient
@@ -41,28 +60,20 @@ export default function Index() {
               style={indexStyles.profilePic}
             />
             <TextInput
-              value="Anonymus"
-              onChangeText={() => {}}
+              value={username}
+              onChangeText={handleChangeUsername}
               style={indexStyles.primaryText}
-              editable={false}
+              placeholder="Enter username..."
             />
           </View>
-
-          <Pressable
-            onPress={() => setDarkMode(!darkMode)}
-            style={indexStyles.headerRight}
-          >
-            <MaterialIcons
-              name={darkMode ? "dark-mode" : "light-mode"}
-              size={24}
-              color="black"
-            />
-          </Pressable>
+          <Text style={indexStyles.connectedUsers}>
+            Online Users: {totalConnectedUsers}
+          </Text>
         </View>
         <View style={indexStyles.primarySection}>
           <Messages
             ref={messageRef}
-            onUpdateConnectedUsers={handleUpdateConnectedUsers}
+            onUpdateConnectedUsers={setTotalConnectedUsers}
           />
           <View style={indexStyles.inputContainer}>
             <TextInput
@@ -73,6 +84,7 @@ export default function Index() {
               style={indexStyles.input}
               multiline
               maxLength={500}
+              onBlur={() => socket?.emit("typing_stop")}
               onSubmitEditing={handleSendMessage}
             />
             <Pressable
@@ -87,10 +99,6 @@ export default function Index() {
             </Pressable>
           </View>
         </View>
-
-        <Text style={indexStyles.connectedUsers}>
-          Online Users: {totalConnectedUsers}
-        </Text>
       </View>
     </LinearGradient>
   );
