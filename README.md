@@ -45,20 +45,21 @@ To run the project locally follow these steps:
 git clone https://github.com/KamilErdogmus/RN-Chat_App.git
 ```
 
-2. Navigate to the project directory:
+2. Navigate to the project directory and install dependencies:
+
+### For Backend:
 
 ```bash
-cd your-repository
+cd backend
+npm install
+npm run dev
 ```
 
-3. Install dependencies:
+### For Frontend:
 
 ```bash
-# Using npm
+cd frontend
 npm install
-
-# Using yarn
-yarn install
 ```
 
 ### For iOS Development (MacOS only)

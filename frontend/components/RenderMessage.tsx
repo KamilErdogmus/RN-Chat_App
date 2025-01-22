@@ -77,6 +77,7 @@ const RenderMessage = ({
             </>
           )}
           {item.edited && <Text style={messagesStyles.edited}>Edited</Text>}
+          {item.edited && <Text style={messagesStyles.bullet}>&bull;</Text>}
           <Text
             style={[
               messagesStyles.timestamp,

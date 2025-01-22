@@ -6,6 +6,11 @@ export default function Layout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
+  const metadata = {
+    title: `Chat App `,
+    description: "Real-time chat application",
+  };
+
   if (!loaded) {
     return null;
   }
@@ -16,6 +21,7 @@ export default function Layout() {
         name="index"
         options={{
           headerShown: false,
+          title: metadata.title,
         }}
       />
     </Stack>

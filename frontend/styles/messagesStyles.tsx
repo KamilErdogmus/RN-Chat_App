@@ -1,4 +1,7 @@
-import { StyleSheet } from "react-native";
+import { hp, isWeb, wp } from "@/constants/Constants";
+import { Platform, StyleSheet, ViewStyle } from "react-native";
+
+const MESSAGE_MAX_WIDTH = "80%";
 
 export const messagesStyles = StyleSheet.create({
   container: {
@@ -12,56 +15,68 @@ export const messagesStyles = StyleSheet.create({
     position: "relative",
   },
   flatListContent: {
-    padding: 10,
-    paddingBottom: 60,
+    padding: isWeb ? 10 : wp(2.5),
+    paddingBottom: isWeb ? 60 : hp(8),
   },
   messageWrapper: {
     position: "relative",
-    marginVertical: 4,
+    marginVertical: isWeb ? 4 : hp(0.5),
     maxWidth: "80%",
     alignSelf: "flex-start",
   },
   userMessageWrapper: {
     alignSelf: "flex-end",
   },
-
   otherMessageWrapper: {
     alignSelf: "flex-start",
   },
   messageContainer: {
-    borderRadius: 15,
-    padding: 10,
+    borderRadius: isWeb ? 12 : wp(4),
+    paddingHorizontal: isWeb ? 12 : wp(2.5),
+    paddingVertical: isWeb ? 8 : hp(1),
     backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.22,
-    shadowRadius: 2.22,
-    elevation: 3,
-  },
-
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.22,
+        shadowRadius: 2.22,
+      },
+      android: {
+        elevation: 3,
+      },
+      web: {
+        boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+        minWidth: "80px",
+        maxWidth: "100%",
+        wordBreak: "break-word",
+        transition: "box-shadow 0.2s ease",
+        "&:hover": {
+          boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
+        },
+      },
+    }),
+  } as ViewStyle,
   messageOuterWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 4,
-    maxWidth: "80%",
+    marginVertical: hp(0.4),
+    maxWidth: MESSAGE_MAX_WIDTH,
     alignSelf: "flex-start",
   },
   userMessageContainer: {
     backgroundColor: "#DCF8C6",
     borderTopRightRadius: 0,
-    borderBottomLeftRadius: 0,
+    borderBottomLeftRadius: isWeb ? 12 : wp(4),
   },
   otherMessageContainer: {
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 0,
-    borderBottomRightRadius: 0,
+    borderBottomRightRadius: isWeb ? 12 : wp(4),
   },
   messageText: {
-    fontSize: 16,
-    marginBottom: 4,
+    fontSize: isWeb ? 14 : wp(4),
+    marginBottom: isWeb ? 4 : hp(0.5),
     color: "#000000",
   },
   userMessageText: {
@@ -74,26 +89,39 @@ export const messagesStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
-    marginTop: 4,
+    marginTop: hp(0.5),
   },
   username: {
-    fontSize: 12,
+    fontSize: Platform.select({
+      web: wp(0.9),
+      ios: wp(3),
+      android: wp(3),
+    }),
     color: "#666666",
-    marginRight: 4,
+    marginRight: 1,
+    fontWeight: "bold",
   },
   bullet: {
-    fontSize: 12,
+    fontSize: Platform.select({
+      web: wp(0.8),
+      ios: wp(2.5),
+      android: wp(2.5),
+    }),
     color: "#666666",
-    marginHorizontal: 4,
+    marginHorizontal: 1,
   },
   timestamp: {
-    fontSize: 12,
+    fontSize: Platform.select({
+      web: wp(0.9),
+      ios: wp(3),
+      android: wp(3),
+    }),
     color: "#666666",
-    marginLeft: 4,
+    marginLeft: 2,
   },
   typingOverlayContainer: {
     position: "absolute",
-    bottom: 70,
+    bottom: hp(9),
     left: 0,
     right: 0,
     alignItems: "center",
@@ -102,74 +130,109 @@ export const messagesStyles = StyleSheet.create({
   },
   typingContainer: {
     backgroundColor: "#fff",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    minWidth: 100,
+    paddingVertical: hp(1),
+    paddingHorizontal: wp(4),
+    borderRadius: wp(5),
+    minWidth: wp(25),
     maxWidth: "90%",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+      web: {
+        boxShadow: "0 2px 4px rgba(0,0,0,0.25)",
+      },
+    }),
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#eee",
   },
   typingText: {
-    fontSize: 14,
+    fontSize: Platform.select({
+      web: wp(1),
+      ios: wp(3.5),
+      android: wp(3.5),
+    }),
     color: "#666",
     textAlign: "center",
     fontWeight: "500",
   },
   connectionStatus: {
     textAlign: "center",
-    padding: 8,
+    padding: wp(2),
     backgroundColor: "#FFE58F",
     color: "#D46B08",
     position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
   },
   connectedUsers: {
     textAlign: "center",
-    padding: 8,
-    fontSize: 12,
+    padding: wp(2),
+    fontSize: Platform.select({
+      web: wp(0.9),
+      ios: wp(3),
+      android: wp(3),
+    }),
     color: "#666666",
     backgroundColor: "rgba(0, 0, 0, 0.05)",
   },
   editInput: {
-    padding: 8,
+    padding: wp(2),
     backgroundColor: "#fff",
-    borderRadius: 8,
-    fontSize: 14,
+    borderRadius: wp(2),
+    fontSize: Platform.select({
+      web: wp(1.1),
+      ios: wp(3.5),
+      android: wp(3.5),
+    }),
     color: "#000",
-    minHeight: 40,
+    minHeight: hp(5),
   },
   editContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 8,
+    borderRadius: wp(2),
+    paddingHorizontal: wp(2),
+    paddingVertical: hp(0.5),
+    gap: wp(2),
   },
-  edited: { fontSize: 12 },
+  edited: {
+    fontSize: Platform.select({
+      web: wp(0.9),
+      ios: wp(3),
+      android: wp(3),
+    }),
+  },
   editSendButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: wp(8),
+    height: wp(8),
+    maxWidth: 32,
+    maxHeight: 32,
+    borderRadius: wp(4),
     backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 1.41,
+      },
+      android: {
+        elevation: 2,
+      },
+      web: {
+        boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+      },
+    }),
   },
 });

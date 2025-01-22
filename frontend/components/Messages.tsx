@@ -21,7 +21,6 @@ const Messages = forwardRef<MessagesRef, MessagesProps>(
     const [editText, setEditText] = useState("");
     const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
     const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
-    const [totalConnectedUsers, setTotalConnectedUsers] = useState(0);
     const [messages, setMessages] = useState<IMessage[]>([]);
     const flatListRef = useRef<FlatList<IMessage>>(null);
 
@@ -79,7 +78,6 @@ const Messages = forwardRef<MessagesRef, MessagesProps>(
 
       const eventHandlers = {
         users_count: (count: number) => {
-          setTotalConnectedUsers(count);
           onUpdateConnectedUsers?.(count);
         },
         typing_users_updated: (users: TypingUser[]) => {
@@ -107,7 +105,6 @@ const Messages = forwardRef<MessagesRef, MessagesProps>(
           );
         },
         username_changed: ({
-          userId,
           newUsername,
           updatedMessages,
         }: {

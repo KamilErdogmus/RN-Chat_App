@@ -1,14 +1,6 @@
 import { Text, Pressable } from "react-native";
 import { reactionModalStyles } from "@/styles/reactionModalStyles";
 
-interface ReactionModalProps {
-  isUser: boolean;
-  messageId: string;
-  onDelete: (messageId: string) => void;
-  onEdit: (messageId: string) => void;
-  onClose: () => void;
-}
-
 const ReactionModal = ({
   isUser,
   messageId,

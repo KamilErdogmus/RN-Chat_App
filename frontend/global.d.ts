@@ -5,7 +5,6 @@ interface IMessage {
   username: string;
   timestamp: string;
   edited?: boolean;
-
   reactions?: string[];
   replyTo?: string;
   attachments?: string[];
@@ -14,7 +13,6 @@ interface IMessage {
 interface IMessagePayload {
   text: string;
   timestamp: string;
-
   replyToId?: string;
   attachments?: string[];
 }
@@ -23,17 +21,23 @@ interface MessagesRef {
   sendMessage: (text: string) => void;
   setUsername: (username: string) => void;
   sendTyping: () => void;
-
   editMessage?: (messageId: string, newText: string) => void;
   deleteMessage?: (messageId: string) => void;
 }
 
 interface MessagesProps {
   onUpdateConnectedUsers?: (count: number) => void;
-
   onError?: (error: Error) => void;
   onMessageSent?: (message: IMessage) => void;
   onTypingStatusChange?: (isTyping: boolean) => void;
+}
+
+interface ReactionModalProps {
+  isUser: boolean;
+  messageId: string;
+  onDelete: (messageId: string) => void;
+  onEdit: (messageId: string) => void;
+  onClose: () => void;
 }
 
 interface TypingUser {

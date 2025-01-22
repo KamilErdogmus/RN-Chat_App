@@ -1,5 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, Image, Pressable, TextInput } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  Pressable,
+  TextInput,
+  SafeAreaView,
+  Platform,
+  Alert,
+} from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Messages from "@/components/Messages";
@@ -14,13 +23,41 @@ export default function Index() {
       .toString()
       .padStart(3, "0")}`
   );
+  const [tempUsername, setTempUsername] = useState("");
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [totalConnectedUsers, setTotalConnectedUsers] = useState(0);
   const messageRef = useRef<MessagesRef>(null);
 
-  const handleChangeUsername = (newUsername: string) => {
-    setUsername(newUsername);
-    socket?.emit("set_username", newUsername);
-    messageRef.current?.setUsername(newUsername);
+  const handleUsernameSubmit = (e: any) => {
+    if (e && Platform.OS === "web") {
+      e.preventDefault();
+    }
+
+    const trimmedUsername = tempUsername.trim();
+
+    if (!trimmedUsername) {
+      Platform.OS === "web"
+        ? alert("Username cannot be empty!")
+        : Alert.alert("Error", "Username cannot be empty!");
+      return;
+    }
+
+    if (trimmedUsername === username) {
+      setIsEditingUsername(false);
+      setTempUsername("");
+      return;
+    }
+
+    setUsername(trimmedUsername);
+    socket?.emit("set_username", trimmedUsername);
+    messageRef.current?.setUsername(trimmedUsername);
+    setIsEditingUsername(false);
+    setTempUsername("");
+  };
+
+  const handleUsernameEdit = () => {
+    setTempUsername(username);
+    setIsEditingUsername(true);
   };
 
   const handleChangeMessage = (text: string) => {
@@ -34,6 +71,15 @@ export default function Index() {
     messageRef.current?.sendMessage(message);
     setMessage("");
     socket?.emit("typing_stop");
+  };
+
+  const handleKeyPress = (e: any) => {
+    if (e.key === "Enter" && !e.shiftKey && Platform.OS === "web") {
+      e.preventDefault();
+      if (message.trim()) {
+        handleSendMessage();
+      }
+    }
   };
 
   useEffect(() => {
@@ -52,19 +98,42 @@ export default function Index() {
       colors={["#f6f8fd", "#f0f2f8"]}
       style={indexStyles.container}
     >
-      <View style={indexStyles.innerContainer}>
+      <SafeAreaView style={indexStyles.innerContainer}>
         <View style={indexStyles.header}>
           <View style={indexStyles.headerLeft}>
             <Image
               source={require("../assets/random.png")}
               style={indexStyles.profilePic}
             />
-            <TextInput
-              value={username}
-              onChangeText={handleChangeUsername}
-              style={indexStyles.primaryText}
-              placeholder="Enter username..."
-            />
+            {isEditingUsername ? (
+              <View style={indexStyles.usernameEditContainer}>
+                <TextInput
+                  value={tempUsername}
+                  onChangeText={setTempUsername}
+                  style={indexStyles.usernameInput}
+                  autoFocus
+                  onBlur={() => {
+                    setIsEditingUsername(false);
+                    setTempUsername("");
+                  }}
+                  onSubmitEditing={(e) => handleUsernameSubmit(e)}
+                  blurOnSubmit={false}
+                />
+                <Pressable
+                  style={({ pressed }) => [
+                    indexStyles.usernameSubmitButton,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                  onPress={handleUsernameSubmit}
+                >
+                  <MaterialIcons name="check" size={20} color="#6C5CE7" />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable onPress={handleUsernameEdit}>
+                <Text style={indexStyles.primaryText}>{username}</Text>
+              </Pressable>
+            )}
           </View>
           <Text style={indexStyles.connectedUsers}>
             Online Users: {totalConnectedUsers}
@@ -84,8 +153,11 @@ export default function Index() {
               style={indexStyles.input}
               multiline
               maxLength={500}
+              onKeyPress={Platform.OS === "web" ? handleKeyPress : undefined}
+              onSubmitEditing={
+                Platform.OS !== "web" ? handleSendMessage : undefined
+              }
               onBlur={() => socket?.emit("typing_stop")}
-              onSubmitEditing={handleSendMessage}
             />
             <Pressable
               style={[
@@ -99,7 +171,7 @@ export default function Index() {
             </Pressable>
           </View>
         </View>
-      </View>
+      </SafeAreaView>
     </LinearGradient>
   );
 }
