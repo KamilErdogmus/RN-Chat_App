@@ -125,12 +125,10 @@ const Messages = forwardRef<MessagesRef, MessagesProps>(
         },
       };
 
-      // Event listeners'ları ekle
       Object.entries(eventHandlers).forEach(([event, handler]) => {
         socket.on(event, handler);
       });
 
-      // Cleanup
       return () => {
         Object.keys(eventHandlers).forEach((event) => {
           socket.off(event);

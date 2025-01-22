@@ -1,4 +1,4 @@
-import { View, Text, Pressable, TouchableOpacity } from "react-native";
+import { Text, Pressable } from "react-native";
 import { reactionModalStyles } from "@/styles/reactionModalStyles";
 
 interface ReactionModalProps {
