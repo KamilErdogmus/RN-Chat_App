@@ -22,9 +22,6 @@ A real-time chat application built with React Native and Socket.IO, featuring cr
 - **expo-system-ui**: System UI utilities
 - **expo-web-browser**: Web browser integration
 - **moment**: Date formatting library
-- **react**: JavaScript library for building user interfaces
-- **react-dom**: React rendering for web
-- **react-native**: Framework for building native applications
 - **react-native-reanimated**: Animation library
 - **react-native-safe-area-context**: Safe area utilities
 - **react-native-screens**: Native navigation screens
