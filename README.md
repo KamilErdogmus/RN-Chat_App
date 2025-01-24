@@ -30,7 +30,7 @@ A real-time chat application built with React Native and Socket.IO, featuring cr
 
 ## Preview
 
-<img src="src/assets/" height="800" alt="App Preview" />
+<img src="./GIFF.gif" height="800" alt="App Preview" />
 
 ## Installation
 
