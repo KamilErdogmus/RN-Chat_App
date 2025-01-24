@@ -76,6 +76,20 @@ const Messages = forwardRef<MessagesRef, MessagesProps>(
     useEffect(() => {
       if (!socket) return;
 
+      socket.on(
+        "username_changed",
+        ({ userId, oldUsername, newUsername, updatedMessages }) => {
+          setMessages((prevMessages) =>
+            prevMessages.map((message) => {
+              if (message.username === oldUsername) {
+                return { ...message, username: newUsername };
+              }
+              return message;
+            })
+          );
+        }
+      );
+
       const eventHandlers = {
         users_count: (count: number) => {
           onUpdateConnectedUsers?.(count);
@@ -129,6 +143,7 @@ const Messages = forwardRef<MessagesRef, MessagesProps>(
       return () => {
         Object.keys(eventHandlers).forEach((event) => {
           socket.off(event);
+          socket.off("username_changed");
         });
       };
     }, [socket, onUpdateConnectedUsers]);

@@ -93,7 +93,7 @@ export const messagesStyles = StyleSheet.create({
   },
   username: {
     fontSize: Platform.select({
-      web: wp(0.9),
+      web: wp(1.25),
       ios: wp(3),
       android: wp(3),
     }),
@@ -112,7 +112,7 @@ export const messagesStyles = StyleSheet.create({
   },
   timestamp: {
     fontSize: Platform.select({
-      web: wp(0.9),
+      web: wp(1.25),
       ios: wp(3),
       android: wp(3),
     }),

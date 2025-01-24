@@ -80,7 +80,7 @@ export const indexStyles = StyleSheet.create({
   },
   primaryText: {
     fontSize: isWeb ? 24 : wp(5),
-    fontWeight: "bold",
+    fontWeight: "500",
     fontFamily: "SpaceMono",
   } as TextStyle,
   input: {
@@ -126,15 +126,14 @@ export const indexStyles = StyleSheet.create({
       },
     }),
   },
-
   usernameInput: {
     fontSize: isWeb ? 16 : wp(4),
+    fontWeight: "500",
     color: "#000",
     minWidth: isWeb ? 120 : wp(30),
     padding: isWeb ? 4 : wp(1),
     fontFamily: "SpaceMono",
   },
-
   usernameSubmitButton: {
     padding: isWeb ? 4 : wp(1),
     marginLeft: isWeb ? 8 : wp(2),

@@ -7,7 +7,7 @@ export const typingUserStyles = StyleSheet.create({
   },
   typingWrapper: {
     position: "absolute",
-    bottom: isWeb ? 70 : hp(8),
+    bottom: isWeb ? 90 : hp(8),
     left: 0,
     right: 0,
     paddingHorizontal: isWeb ? 10 : wp(2.5),
@@ -49,7 +49,7 @@ export const typingUserStyles = StyleSheet.create({
   },
   typingText: {
     fontSize: Platform.select({
-      web: wp(1),
+      web: wp(1.5),
       ios: wp(3.5),
       android: wp(3.5),
     }),
